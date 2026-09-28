@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html lang="da">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Geo Maze</title>
 
   <style>
@@ -16,55 +15,38 @@
     }
 
     #game {
-      max-width: 700px;
+      max-width: 760px;
       margin: 30px auto;
       padding: 20px;
     }
 
     h1 {
       color: #facc15;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin-top: 0;
+      opacity: 0.95;
     }
 
     #scoreboard {
       display: flex;
-      justify-content: space-around;
-      gap: 10px;
-      margin-bottom: 20px;
-      padding: 15px;
+      justify-content: center;
+      gap: 12px;
+      margin: 16px auto 20px;
+      padding: 12px;
       background: #1e3a8a;
       border-radius: 12px;
       flex-wrap: wrap;
+      max-width: 620px;
     }
 
     .score-box {
-      min-width: 120px;
-    }
-
-    #maze {
-      display: grid;
-      grid-template-columns: repeat(10, 1fr);
-      gap: 2px;
-      max-width: 500px;
-      margin: 20px auto;
-      padding: 5px;
-      background: #020617;
-    }
-
-    .cell {
-      aspect-ratio: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #bfdbfe;
-      color: #020617;
-      font-size: 22px;
-    }
-
-    #message {
-      min-height: 30px;
-      margin-top: 20px;
-      color: #facc15;
-      font-weight: bold;
+      min-width: 150px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 8px 10px;
     }
 
     button {
@@ -75,78 +57,412 @@
       color: #172554;
       font-weight: bold;
       cursor: pointer;
+      margin-bottom: 16px;
     }
 
     button:hover {
       background: #fde68a;
     }
+
+    #maze {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 2px;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 6px;
+      background: #020617;
+      border-radius: 8px;
+    }
+
+    .cell {
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #bfdbfe;
+      color: #020617;
+      font-size: 21px;
+      user-select: none;
+    }
+
+    .wall {
+      background: #0f172a;
+    }
+
+    .player {
+      background: #22c55e;
+    }
+
+    .cache {
+      background: #facc15;
+    }
+
+    .pickup {
+      background: #c084fc;
+    }
+
+    #message {
+      min-height: 36px;
+      margin-top: 18px;
+      color: #facc15;
+      font-weight: bold;
+      white-space: pre-line;
+    }
+
+    #help {
+      margin-top: 10px;
+      font-size: 14px;
+      opacity: 0.9;
+    }
   </style>
 </head>
-
 <body>
   <main id="game">
     <h1>🗺️ Geo Maze</h1>
-
-    <p>Hjælp Geo_Miki med at finde cachen!</p>
+    <p>Hjælp Geo_Miki med at samle alt og finde cachen.</p>
 
     <section id="scoreboard">
-      <div class="score-box">
-        ⏱️ Tid:
-        <strong><span id="time">0</span> sek.</strong>
-      </div>
-
-      <div class="score-box">
-        🎒 Pickups:
-        <strong><span id="pickups">0/0</span></strong>
-      </div>
-
-      <div class="score-box">
-        🏆 Score:
-        <strong><span id="score">0</span></strong>
-      </div>
+      <div class="score-box">⏱️ Tid: <strong><span id="time">0</span> sek.</strong></div>
+      <div class="score-box">🎒 Pickups: <strong><span id="pickups">0/0</span></strong></div>
+      <div class="score-box">🏆 TB-score: <strong><span id="score">0</span></strong></div>
+      <div class="score-box">🥇 Bedste tid: <strong><span id="bestTime">-</span></strong></div>
     </section>
 
-    <button id="startButton">Start spil</button>
+    <button id="startButton">Start / Restart spil</button>
 
     <div id="maze"></div>
 
-    <div id="message">
-      Tryk på “Start spil” for at begynde.
-    </div>
+    <div id="message">Tryk på “Start / Restart spil”. Brug piletasterne til at bevæge dig.</div>
+    <div id="help">Pickups: 📍 GPS · 🔦 Lommelygte · 🪙 TB · 💡 Hint</div>
   </main>
 
   <script>
+    // ====== Elementer ======
     const startButton = document.getElementById("startButton");
     const timeElement = document.getElementById("time");
     const pickupsElement = document.getElementById("pickups");
     const scoreElement = document.getElementById("score");
+    const bestTimeElement = document.getElementById("bestTime");
     const messageElement = document.getElementById("message");
     const mazeElement = document.getElementById("maze");
 
+    // ====== Spilindstillinger ======
+    const rows = 10;
+    const cols = 10;
+    const totalCells = rows * cols;
+    const wallCount = 18; // antal vægge
+    const finalCoordinate = "N 56° 07.123 E 010° 12.456";
+
+    // Pickup-typer
+    const pickupTypes = ["GPS", "FLASHLIGHT", "TB", "HINT"];
+
+    // ====== Spil-state ======
+    let grid = []; // 0=vej, 1=væg
+    let player = { r: 0, c: 0 };
+    let cache = { r: rows - 1, c: cols - 1 };
+
+    let pickups = []; // [{r,c,type,collected:false}]
+    let collectedCount = 0;
+    let tbScore = 0;
+
+    let timerId = null;
     let seconds = 0;
-    let score = 0;
-    let timer;
+    let gameActive = false;
+    let gameWon = false;
 
-    function startGame() {
-      seconds = 0;
-      score = 0;
+    // ====== Helpers ======
+    function key(r, c) {
+      return `${r},${c}`;
+    }
 
+    function samePos(a, b) {
+      return a.r === b.r && a.c === b.c;
+    }
+
+    function inBounds(r, c) {
+      return r >= 0 && r < rows && c >= 0 && c < cols;
+    }
+
+    function randomInt(max) {
+      return Math.floor(Math.random() * max);
+    }
+
+    function getBestTime() {
+      return localStorage.getItem("geoMazeBestTime");
+    }
+
+    function setBestTime(sec) {
+      localStorage.setItem("geoMazeBestTime", String(sec));
+    }
+
+    function updateBestTimeUI() {
+      const best = getBestTime();
+      bestTimeElement.textContent = best ? `${best} sek.` : "-";
+    }
+
+    function updateScoreboard() {
       timeElement.textContent = seconds;
-      scoreElement.textContent = score;
-      pickupsElement.textContent = "0/0";
+      pickupsElement.textContent = `${collectedCount}/${pickupTypes.length}`;
+      scoreElement.textContent = tbScore;
+    }
 
-      messageElement.textContent =
-        "Spillet er startet! Labyrinten kommer i næste trin.";
+    function setMessage(text) {
+      messageElement.textContent = text;
+    }
 
-      clearInterval(timer);
+    // ====== Generér tilfældig bane med vægge + check at mål kan nås ======
+    function generatePlayableGrid() {
+      // Prøv flere gange indtil vi får en bane hvor start -> alle pickups -> cache kan nås
+      for (let attempt = 0; attempt < 300; attempt++) {
+        // tom grid
+        grid = Array.from({ length: rows }, () => Array(cols).fill(0));
 
-      timer = setInterval(function () {
+        // vægge (ikke på start og cache)
+        let placed = 0;
+        while (placed < wallCount) {
+          const r = randomInt(rows);
+          const c = randomInt(cols);
+          if ((r === 0 && c === 0) || (r === rows - 1 && c === cols - 1)) continue;
+          if (grid[r][c] === 1) continue;
+          grid[r][c] = 1;
+          placed++;
+        }
+
+        // placer pickups på frie felter
+        pickups = [];
+        const used = new Set([key(0, 0), key(rows - 1, cols - 1)]);
+        for (const type of pickupTypes) {
+          let tries = 0;
+          while (tries < 300) {
+            const r = randomInt(rows);
+            const c = randomInt(cols);
+            if (grid[r][c] === 1) { tries++; continue; }
+            const k = key(r, c);
+            if (used.has(k)) { tries++; continue; }
+            used.add(k);
+            pickups.push({ r, c, type, collected: false });
+            break;
+          }
+        }
+
+        // check at alle pickups + cache kan nås fra start
+        if (allTargetsReachable()) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function allTargetsReachable() {
+      const reachable = bfsReachable(player.r, player.c);
+      for (const p of pickups) {
+        if (!reachable.has(key(p.r, p.c))) return false;
+      }
+      if (!reachable.has(key(cache.r, cache.c))) return false;
+      return true;
+    }
+
+    function bfsReachable(sr, sc) {
+      const visited = new Set();
+      const q = [];
+      q.push({ r: sr, c: sc });
+      visited.add(key(sr, sc));
+
+      const dirs = [
+        { dr: -1, dc: 0 },
+        { dr: 1, dc: 0 },
+        { dr: 0, dc: -1 },
+        { dr: 0, dc: 1 }
+      ];
+
+      while (q.length) {
+        const cur = q.shift();
+        for (const d of dirs) {
+          const nr = cur.r + d.dr;
+          const nc = cur.c + d.dc;
+          if (!inBounds(nr, nc)) continue;
+          if (grid[nr][nc] === 1) continue;
+          const k = key(nr, nc);
+          if (visited.has(k)) continue;
+          visited.add(k);
+          q.push({ r: nr, c: nc });
+        }
+      }
+      return visited;
+    }
+
+    // ====== Rendering ======
+    function drawMaze() {
+      mazeElement.innerHTML = "";
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell");
+
+          if (grid[r][c] === 1) {
+            cell.classList.add("wall");
+            mazeElement.appendChild(cell);
+            continue;
+          }
+
+          // cache
+          if (r === cache.r && c === cache.c) {
+            cell.textContent = "📦";
+            cell.classList.add("cache");
+          }
+
+          // pickups (kun hvis ikke samlet)
+          const pickup = pickups.find(p => p.r === r && p.c === c && !p.collected);
+          if (pickup) {
+            cell.classList.add("pickup");
+            if (pickup.type === "GPS") cell.textContent = "📍";
+            if (pickup.type === "FLASHLIGHT") cell.textContent = "🔦";
+            if (pickup.type === "TB") cell.textContent = "🪙";
+            if (pickup.type === "HINT") cell.textContent = "💡";
+          }
+
+          // player overstyrer ikon
+          if (r === player.r && c === player.c) {
+            cell.textContent = "🧍";
+            cell.classList.add("player");
+          }
+
+          mazeElement.appendChild(cell);
+        }
+      }
+    }
+
+    // ====== Game logic ======
+    function startGame() {
+      clearInterval(timerId);
+
+      player = { r: 0, c: 0 };
+      cache = { r: rows - 1, c: cols - 1 };
+
+      collectedCount = 0;
+      tbScore = 0;
+      seconds = 0;
+      gameWon = false;
+      gameActive = true;
+
+      const ok = generatePlayableGrid();
+      if (!ok) {
+        setMessage("Kunne ikke generere en spilbar bane. Prøv igen.");
+        return;
+      }
+
+      updateScoreboard();
+      updateBestTimeUI();
+      drawMaze();
+      setMessage("Spillet er startet! Saml alle pickups og find cachen.");
+
+      timerId = setInterval(() => {
+        if (!gameActive) return;
         seconds++;
-        timeElement.textContent = seconds;
+        updateScoreboard();
       }, 1000);
     }
 
+    function movePlayer(dr, dc) {
+      if (!gameActive || gameWon) return;
+
+      const nr = player.r + dr;
+      const nc = player.c + dc;
+
+      if (!inBounds(nr, nc)) return;      // udenfor banen
+      if (grid[nr][nc] === 1) return;     // væg
+
+      player.r = nr;
+      player.c = nc;
+
+      handlePickup();
+      handleCacheCheck();
+
+      drawMaze();
+    }
+
+    function handlePickup() {
+      const pickup = pickups.find(p => !p.collected && p.r === player.r && p.c === player.c);
+      if (!pickup) return;
+
+      pickup.collected = true;
+      collectedCount++;
+
+      if (pickup.type === "TB") {
+        tbScore += 10;
+        setMessage("Du samlede en TB! +10 score");
+      } else if (pickup.type === "GPS") {
+        setMessage("GPS fundet! Tip: Cachen er markeret med 📦");
+      } else if (pickup.type === "FLASHLIGHT") {
+        setMessage("Lommelygte fundet! Du lyser vejen op 🔦");
+      } else if (pickup.type === "HINT") {
+        const hint = getHintToCache();
+        setMessage(`Hint: ${hint}`);
+      }
+
+      updateScoreboard();
+    }
+
+    function getHintToCache() {
+      const vertical = cache.r < player.r ? "nord" : (cache.r > player.r ? "syd" : "");
+      const horizontal = cache.c > player.c ? "øst" : (cache.c < player.c ? "vest" : "");
+      if (vertical && horizontal) return `Cachen er mod ${vertical}${horizontal}.`;
+      if (vertical) return `Cachen er mod ${vertical}.`;
+      if (horizontal) return `Cachen er mod ${horizontal}.`;
+      return "Du står ved cachen!";
+    }
+
+    function handleCacheCheck() {
+      if (!samePos(player, cache)) return;
+
+      const allCollected = collectedCount === pickupTypes.length;
+
+      if (!allCollected) {
+        setMessage("Du fandt cachen, men mangler pickups! Saml alle først.");
+        return;
+      }
+
+      // Vundet
+      gameWon = true;
+      gameActive = false;
+      clearInterval(timerId);
+
+      // bonus for hurtig tid (valgfri)
+      const timeBonus = Math.max(0, 60 - seconds);
+      const finalScore = tbScore + timeBonus;
+      tbScore = finalScore;
+      updateScoreboard();
+
+      const best = getBestTime();
+      if (!best || seconds < Number(best)) {
+        setBestTime(seconds);
+        updateBestTimeUI();
+      }
+
+      setMessage(
+        `🎉 Tillykke Geo_Miki!\n` +
+        `Du samlede alle pickups og fandt cachen.\n` +
+        `Koordinat: ${finalCoordinate}\n` +
+        `Tid: ${seconds} sek. | Slutscore: ${finalScore}`
+      );
+    }
+
+    // ====== Tastatur ======
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowUp") movePlayer(-1, 0);
+      if (event.key === "ArrowDown") movePlayer(1, 0);
+      if (event.key === "ArrowLeft") movePlayer(0, -1);
+      if (event.key === "ArrowRight") movePlayer(0, 1);
+    });
+
     startButton.addEventListener("click", startGame);
+
+    // Første visning
+    updateBestTimeUI();
+    updateScoreboard();
+    drawMaze();
   </script>
 </body>
 </html>
