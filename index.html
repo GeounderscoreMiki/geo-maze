@@ -1,1 +1,152 @@
-.
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Geo Maze</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      color: white;
+      background: #172554;
+    }
+
+    #game {
+      max-width: 700px;
+      margin: 30px auto;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #facc15;
+    }
+
+    #scoreboard {
+      display: flex;
+      justify-content: space-around;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: #1e3a8a;
+      border-radius: 12px;
+      flex-wrap: wrap;
+    }
+
+    .score-box {
+      min-width: 120px;
+    }
+
+    #maze {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 2px;
+      max-width: 500px;
+      margin: 20px auto;
+      padding: 5px;
+      background: #020617;
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #bfdbfe;
+      color: #020617;
+      font-size: 22px;
+    }
+
+    #message {
+      min-height: 30px;
+      margin-top: 20px;
+      color: #facc15;
+      font-weight: bold;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      background: #facc15;
+      color: #172554;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #fde68a;
+    }
+  </style>
+</head>
+
+<body>
+  <main id="game">
+    <h1>🗺️ Geo Maze</h1>
+
+    <p>Hjælp Geo_Miki med at finde cachen!</p>
+
+    <section id="scoreboard">
+      <div class="score-box">
+        ⏱️ Tid:
+        <strong><span id="time">0</span> sek.</strong>
+      </div>
+
+      <div class="score-box">
+        🎒 Pickups:
+        <strong><span id="pickups">0/0</span></strong>
+      </div>
+
+      <div class="score-box">
+        🏆 Score:
+        <strong><span id="score">0</span></strong>
+      </div>
+    </section>
+
+    <button id="startButton">Start spil</button>
+
+    <div id="maze"></div>
+
+    <div id="message">
+      Tryk på “Start spil” for at begynde.
+    </div>
+  </main>
+
+  <script>
+    const startButton = document.getElementById("startButton");
+    const timeElement = document.getElementById("time");
+    const pickupsElement = document.getElementById("pickups");
+    const scoreElement = document.getElementById("score");
+    const messageElement = document.getElementById("message");
+    const mazeElement = document.getElementById("maze");
+
+    let seconds = 0;
+    let score = 0;
+    let timer;
+
+    function startGame() {
+      seconds = 0;
+      score = 0;
+
+      timeElement.textContent = seconds;
+      scoreElement.textContent = score;
+      pickupsElement.textContent = "0/0";
+
+      messageElement.textContent =
+        "Spillet er startet! Labyrinten kommer i næste trin.";
+
+      clearInterval(timer);
+
+      timer = setInterval(function () {
+        seconds++;
+        timeElement.textContent = seconds;
+      }, 1000);
+    }
+
+    startButton.addEventListener("click", startGame);
+  </script>
+</body>
+</html>
